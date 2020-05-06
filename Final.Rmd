@@ -1,0 +1,257 @@
+---
+title: "Final Project"
+author: "Caden Zonnefeld"
+date: "`r format(Sys.time(),'%d %B %Y')`"
+output: html_document
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE)
+```
+
+```{r}
+setwd("~/Documents/STAT344/FINAL")
+data17 <- read.csv("NBA17-18.csv")
+data18 <- read.csv("NBA18-19.csv")
+```
+
+```{r}
+#dropping any players who played less than 15 MPG in the 2018-19 season
+dropIndices18MPG <- vector()
+for (i in 1:length(data18$MP)){
+  if (data18[["MP"]][i]<15){
+    dropIndices18MPG <- append(dropIndices18MPG,i)
+  }
+}
+data18.2 <- data18[-dropIndices18MPG,]
+#dropping any players who playes less than 41 (half) of the games in the 2018-19 season
+dropIndices18G <- vector()
+for (i in 1:length(data18.2$MP)){
+  if (data18.2[["G"]][i]<41){
+    dropIndices18G <- append(dropIndices18G,i)
+  }
+}
+data18.3 <- data18.2[-dropIndices18G,]
+#dropping any players who played less than 15 MPG in the 2017-18 season
+data17["MPG"] <- data17$MP/data17$G
+dropIndices17MPG <- vector()
+for (i in 1:length(data17$MPG)){
+  if (data17[["MPG"]][i]<15){
+    dropIndices17MPG <- append(dropIndices17MPG,i)
+  }
+}
+data17.2 <- data17[-dropIndices17MPG,]
+#dropping any players who playes less than 41 (half) of the games in the 2017-18 season
+dropIndices17G <- vector()
+for (i in 1:length(data17.2$MP)){
+  if (data17.2[["G"]][i]<41){
+    dropIndices17G <- append(dropIndices17G,i)
+  }
+}
+data17.3 <- data17.2[-dropIndices17G,]
+```
+
+```{r}
+data17.3["PPG"] <- round(data17.3$PTS/data17.3$G, digits=1)
+data17.3["RPG"] <- round(data17.3$TRB/data17.3$G, digits=1)
+data17.3["BPG"] <- round(data17.3$BLK/data17.3$G, digits=1)
+data17.3["APG"] <- round(data17.3$AST/data17.3$G, digits=1)
+data17.3["SPG"] <- round(data17.3$STL/data17.3$G, digits=1)
+data17.3["NAME"] <- data17.3$Player.Name
+data17.3["FG%"] <- data17.3$FG.
+data17.3["FT%"] <- data17.3$FT.
+data17.3["3P%"] <- data17.3$X3P.
+data17.3["USG"] <- data17.3$USG.
+data17.3["MINUTES"] <- data17.3$MP
+
+data18.3["PPG"] <- data18.3$Points
+data18.3["RPG"] <- data18.3$Rebounds
+data18.3["BPG"] <- data18.3$Blocks
+data18.3["APG"] <- data18.3$Assists
+data18.3["SPG"] <- data18.3$Steals
+data18.3["FG%"] <- data18.3$FG.
+data18.3["FT%"] <- data18.3$FT.
+data18.3["3P%"] <- data18.3$FG3.
+data18.3["NAME"] <- data18.3$Name
+data18.3["MINUTES"] <- round(data18.3$MP*data18.3$G)
+
+
+
+data17trim <- data17.3[c("NAME","MINUTES","PPG","RPG","BPG","APG","SPG","PER","VORP","FG%","FT%","3P%","USG")]
+data18trim <- data18.3[c("NAME","MINUTES","PPG","RPG","BPG","APG","SPG","PER","VORP","FG%","FT%","3P%","USG")]
+```
+
+
+```{r}
+keepIndices17 <- vector()
+for (i in 1:length(data17trim$NAME)){
+  if(data17trim[["NAME"]][i] %in% data18trim$NAME){
+    keepIndices17 <- append(keepIndices17,i)
+  }
+}
+data17matched <- data17trim[keepIndices17,]
+data17final <- data17matched[order(data17matched$NAME),]
+data17final <- data17final[-158,]
+
+keepIndices18 <- vector()
+for (i in 1:length(data18trim$NAME)){
+  if(data18trim[["NAME"]][i] %in% data17trim$NAME){
+    keepIndices18 <- append(keepIndices18,i)
+  }
+}
+
+data18matched <- data18trim[keepIndices18,]
+data18final <- data18matched[order(data18matched$NAME),]
+data18final <- data18final[-158,]
+
+
+mergedData <- cbind(data17final,data18final)
+```
+
+
+```{r}
+changeData <- data.frame("NAME"=data18final$NAME,"MINUTES"=data18final$MINUTES-data17final$MINUTES,"PPG"=data18final$PPG-data17final$PPG,"RPG"=data18final$RPG-data17final$RPG,"BPG"=data18final$BPG-data17final$BPG, "APG"=data18final$APG-data17final$APG,"SPG"=data18final$SPG-data17final$SPG,"PER"=data18final$PER-data17final$PER,"VORP"=data18final$VORP-data17final$VORP,"FGPct"=data18final$`FG%`-data17final$`FG%`,"FTPct"=data18final$`FT%`-data17final$`FT%`,"FG3Pct"=data18final$`3P%`-data17final$`3P%`,"USG"=data18final$USG-data17final$USG)
+```
+
+## Introduction
+This project investigates how individual player statistics contribute to player value in the NBA as measured by VORP. Value Over Replacement Player (VORP) is a statistic that utilizes box plus/minus to determine player value. I decided to use VORP rather than WS/48 as it depends less on team contribution, which gets particularly difficult for the roughly 10% of players that switch teams throughout the course of the season. Furthermore, I included minutes as an explanatory variable since VORP is dependent on minutes and box plus/minus. WS/48 relies upon win shares which have more flaws as a statistic than box plus/minus.
+
+The dataset being used consists of player stats for every player in the NBA from the 2017-18 and 2018-19 seasons. The criterion for a player being included in the analysis dataset is that they must have played in both seasons, played 15+ minutes per game in each season, and played 41+ (half) games in each season. These added stipulations for players aim to eliminate any fluke stretches of a few great games by a player. The analysis dataset consists of 191 players that met these three criterion.
+
+Each of the datasets came as a csv file with similar, albiet not identical, fields. All of the data from the 2017-18 season was transformed from season totals into game averages. Each explanatory column in the analysis dataset is a change variable such that the change can be analyzed from 2017-18 to 2018-19. Thus, positive values correspond to increases in production while negative values correspond to decreases in production.
+
+## Exploration
+```{r, message=FALSE}
+library(ggplot2)
+ggplot(changeData, aes(x=VORP))+geom_histogram(color="black",fill="gold")+labs(title="Histogram of Player VORP Changes")+xlab("Change in VORP from 2017-18 to 2018-19")+ylab("Frequency")
+```
+
+The histogram above indicates that about half of the players in the dataset increased in value from the 2017-18 to the 2018-19 season while the other half decreased in value from the 2017-18 to the 2018-19 season. Furthermore, it is not surprising to see that the value (VORP) of most players did not change dramatically for most players from one season to the next.
+```{r}
+bwr <- colorRampPalette(c("blue","white","red"))
+
+changeData$VORPorderd <- sort(changeData$VORP)
+plot(changeData$VORPorderd, col=bwr(192),main="Sorted Player VORP Changes",xlab= "Player Index",ylab="VORP")
+```
+
+The above plot further indicates that the distribution of the VORP changes appears to be relatively even between players that improved and players that declined. The peak and dip in behavior at the ends of the line corresponds to players that improved significantly and players that declined significantly respectively.
+
+```{r}
+plot(mergedData$VORP~mergedData$MINUTES, xlab="Minutes", ylab="VORP", main="VORP v. Minutes", col="darkgreen")
+```
+
+This plot demonstrates the positive relationship between minutes and VORP using the raw data. Outliers that are above similar points in minutes played indicate players that are highly effective in contributing to winning in their time on the court. 
+```{r}
+changeData["CountingStats"] <- changeData$PPG+changeData$RPG+changeData$SPG+changeData$BPG
+plot(changeData$PER~changeData$CountingStats, xlab="Counting Stats", ylab="PER", main="PER v. Counting Stats", col="red")
+```
+
+This plot indicates the relationship bewteen Player Efficienty Rating (PER) and counting stats. PER is often used as a measure to summarize counting stats (points, rebounds, assists, blocks, steals), and the data attests to the ability of PER in doing so. PER will be used as a proxy for the basic counting stats in the final multiple linear regression model due to its close relationship; furthermore, this will simplify the final model.
+```{r}
+plot(changeData$VORP~changeData$PPG, ylab="VORP", xlab="PPG", main = "VORP v. PPG", col="blue")
+plot(changeData$VORP~changeData$RPG, ylab="VORP", xlab="RPG", main = "VORP v. RPG", col="blue")
+plot(changeData$VORP~changeData$APG, ylab="VORP", xlab="APG", main = "VORP v. APG", col="blue")
+plot(changeData$VORP~changeData$PER, ylab="VORP", xlab="PER", main = "VORP v. PER", col="blue")
+plot(changeData$VORP~changeData$USG, ylab="VORP", xlab="USG%", main = "VORP v. USG%", col="blue")
+plot(changeData$VORP~changeData$FGPct, ylab="VORP", xlab="FGPct", main = "VORP v. FGPct", col="blue")
+```
+
+Exploring the generally positive correlation between VORP and each of PPG, RPG, APG, PER, USG% and FG%. The correlations reveal that there is a linear association between each of these variables and VORP USG% appears to have the loosest correlation to VORP. Additionally, the player below -6 in VORP change that is an outlier in most of the plots is Russel Westbrook who had a far less productive season in 2018-19 than he did in 2017-18. Since he is an outlier by all measures, he will be removed from the dataset.
+```{r}
+boxplot(changeData$VORP,changeData$PER,changeData$PPG,changeData$RPG,changeData$APG,names=c("VORP","PER","PPG","RPG","APG"),xlab="Statistic",ylab="Change in Value",main="Boxplot of Statistic Changes from 2017-18 to 2018-19",col='orange')
+```
+
+The above graphic depicts a boxplot for VORP and each of the main counting category statistics. The data reveals, that each of these categories contains at least one major outlier on both the positive and negative sides of the spectrum. The player with the major increase in PER is Domantas Sabonis of the Indiana Pacers who improved dramatically from the 2017-18 season to the 2018-19 season.
+
+## Analysis
+
+#### Models
+```{r, warning=FALSE}
+library(plotrix)
+model1 <- lm(changeData$VORP~changeData$PER+changeData$MINUTES+changeData$USG)
+summary(model1)
+anova(model1)
+
+
+slices <- c(152.546,38.616,12.141,84.062)
+percent <- round(slices/sum(slices)*100)
+labels <- c("PER","Minutes","USG%","Unexplained")
+labels <- paste(labels,percent)
+labels <- paste(labels,"%",sep="")
+pie3D(slices,labels=labels,main="Pie Chart of Variation in VORP Change")
+```
+
+The above pie chart corresponds to a multiple linear regression model that takes utilizes a players PER, Minutes, and USG% to explain the variation in VORP change from the 2017-18 to the 2018-19 NBA season. The slices of the pie correspond to Sum of Squares values from the Anova table for the model. Each of the independent explanatory variables accounted for a significant amount of variation based on F-statistic values greater than 4. This model indicates that the change in a player's PER plays a crucial role in predicting how that player's VORP will change. Furthermore, the change in a player's Minutes and USG% are important factors in predicting how a player'S VORP will change, though less influential than PER.
+
+```{r}
+model2 <- lm(changeData$VORP~changeData$PPG+changeData$APG+changeData$RPG)
+summary(model2)
+anova(model2)
+
+
+
+slices2 <- c(122.739,8.095,10.011,167.023)
+percent2 <- round(slices2/sum(slices2)*100,digits=1)
+labels2 <- c("PPG","APG","RPG","Unexplained")
+labels2 <- paste(labels2,percent2)
+labels2 <- paste(labels2,"%",sep="")
+pie3D(slices2,labels=labels2,main="Pie Chart of Variation in VORP Change",col=c("blue","orange","red","yellow"))
+```
+
+The above pie chart corresponds to a multiple linear regression model that utilizes PPG, APG, and RPG to explain the variation that in VORP change from the 2017-18 to the 2018-19 NBA season. The slices of the pie correspond to Sum of Squares values from the Anova table for the model. Each of the independent explanatory variables is significant based on F-statistic values greater than 4. The data reveals that the change in a player's PPG is the best predictor of how a player's VORP will change. However, the change in a player's RPG and APG are each important in predicting how a player's VORP will change despite being less influential than PPG. 
+
+#### Assumptions
+Measuring the change between the 2017-18 and 2018-19 season for each individual player ensured the independence of each observation. The same analysis dataset was used for each model so the independance assumption holds for both the first and second model. Furthermore, the general positive, linear correlation between each variable of interest and VORP fulfills the linearity assumption for both models.
+```{r}
+plot(model1, which=2, col="blue")
+```
+
+The normal Q-Q plot shows that the errors from the first model are distributed normally, supporting the fulfillment of the normality linear regression assumption.
+
+```{r}
+hist(resid(model1), main="Histogram of Residuals", xlab="Residuals", col="orange")
+```
+
+The normal distribution in the histogram of residuals from the first model confirms that the errors are normally distributed, and thus fulfills the normality assumption of linear modeling.
+
+
+```{r}
+plot(resid(model1), main="Residual Variance", ylab="Residuals", col="red")
+```
+
+The above plot shows that the first model fulfills the equal variance assumption of linear modeling since the variance of the residuals remains equal across all values of X. Thus all of the linear assumptions are fulfilled for the first model.
+
+```{r}
+plot(model2, which=2, col="blue")
+```
+
+The normal Q-Q plot shows that the errors from the second model are distributed normally, supporting the fulfillment of the normality linear regression assumption.
+
+```{r}
+hist(resid(model2), main="Histogram of Residuals", xlab="Residuals", col="orange")
+```
+
+The normal distribution in the histogram of residuals from the second model confirms that the errors are normally distributed, and thus fulfills the normality assumption of linear modeling.
+
+```{r}
+plot(resid(model2), main="Residual Variance", ylab="Residuals", col="red")
+```
+
+The above plot indicates that the seond model fulfills the equal variance assumption of linear modeling since the variance of the residuals remains equal across all values of X. Thus all of the linear assumptions are fulfilled for the second model.
+
+## Conclusion
+The analysis indicates that the PER statistic is the player statistic with the largest effect on a player's VORP from season to season. Likewise, it is clear that of the basic counting statistics (points, assists, rebounds), a change in a player's PPG has the largest effect on a player's VORP from season to season. There are many other variables that account for the remanining unexplaned variation including but not limited to: age, team success, injury, and whether or not the player is in a contract year. Future investigation into this topic would employ the usage of more powerful statistic models to help better explain the variation in VORP from the 2017-18 to the 2018-19 season.
+
+## Sources
+Casalan, Angelo. "NBA player stats 2017-18." *Kaggle*, 20 Oct. 2018, [www.kaggle.com/acasalan/nba-player-stats-201718](www.kaggle.com/acasalan/nba-player-stats-201718).
+
+"NBA Regular Season Stats 2018-2019." *Kaggle*, 19 May 2019, [www.kaggle.com/schmadam97/nba-regular-season-stats-20182019/activity](www.kaggle.com/schmadam97/nba-regular-season-stats-20182019/activity).  
+<br/><br/>
+The datasets used came from Kaggle, all information needed to work with the data came from prior understanding of the NBA.
+
+
+
+
+
+
+
